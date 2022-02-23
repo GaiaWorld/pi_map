@@ -1,0 +1,9 @@
+[package]
+name = "pi_map"
+version = "0.1.0"
+authors = ["suncy <suncy@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+pi_time = {path="../pi_time"}
+pi_hash = {path="../pi_hash"}
