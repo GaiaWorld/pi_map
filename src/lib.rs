@@ -18,8 +18,6 @@
 
 
 extern crate pi_hash;
-#[cfg(test)]
-extern crate pi_time;
 
 pub mod vecmap;
 pub mod hashmap;

@@ -407,10 +407,6 @@ impl<T> Debug for VecMap<T> where T: Debug {
 // }
 
 #[cfg(test)]
-extern crate time;
-// #[cfg(test)]
-// use time::now_microsecond;
-#[cfg(test)]
 use std::time::Instant;
 #[test]
 fn test_time(){

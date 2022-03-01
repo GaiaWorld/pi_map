@@ -1,9 +1,12 @@
 [package]
 name = "pi_map"
 version = "0.1.0"
-authors = ["suncy <suncy@gmail.com>"]
-edition = "2018"
+authors = ["suncy <530739162@qq.com>"]
+edition = "2021"
+description = "Define a Triat: map for the mapped schema, and provide two built-in implementations of HashMap and vecmap"
+repository = "https://github.com/GaiaWorld/pi_map.git"
+license = "MIT OR Apache-2.0"
+keywords = ["pi", "pi_map", "map"]
 
 [dependencies]
-pi_time = {path="../pi_time"}
-pi_hash = {path="../pi_hash"}
+pi_hash = "0.1"
