@@ -16,7 +16,7 @@
 //! 再决定使用VecMap前，你应该综合考虑这几个问题：访问性能、数据连续性、内存的浪费情况。
 //!
 use std::mem::{replace};
-use std::fmt::{Debug, Formatter, Result as FResult};
+use std::fmt::Debug;
 use std::ops::{Index, IndexMut};
 use std::slice::Iter;
 // use std::ops::Drop;
@@ -25,6 +25,7 @@ use std::slice::Iter;
 use crate::Map;
 // TODO 改成类似slab的写法，用单独的vec<usize>的位记录是否为空。现在这种写法太费内存了
 /// 数据结构VecMap
+#[derive(Debug, Hash)]
 pub struct VecMap<T> {
     entries: Vec<Option<T>>,// Chunk of memory
     len: usize,// Number of Filled elements currently in the slab
@@ -306,14 +307,6 @@ impl<T> IndexMut<usize> for VecMap<T> {
 //     }
 // }
 
-impl<T> Debug for VecMap<T> where T: Debug {
-    fn fmt(&self, fmt: &mut Formatter) -> FResult {
-        write!(fmt,
-               "Slab {{ len: {}, entries:{:?} }}",
-               self.len,
-               self.entries)
-    }
-}
 
 // pub struct SlabIter<'a, T: 'a> {
 //     signs: &'a Vec<usize>,
