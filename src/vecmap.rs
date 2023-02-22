@@ -177,7 +177,7 @@ impl<T> VecMap<T> {
 
     /// 移除指定位置的值，返回被移除的值，如果该位置不存在一个值，返回None
     pub fn remove(&mut self, index: usize) -> Option<T> {
-        if index > self.entries.len() {
+        if index >= self.entries.len() {
             return None;
         }
         match replace(&mut self.entries[index], None) {
