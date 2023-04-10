@@ -18,7 +18,7 @@
 
 pub mod vecmap;
 pub mod hashmap;
-
+pub mod smallvecmap;
 /// Map接口定义
 pub trait Map{
 	type Key;

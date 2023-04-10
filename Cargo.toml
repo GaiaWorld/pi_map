@@ -10,3 +10,5 @@ keywords = ["pi", "pi_map", "map"]
 
 [dependencies]
 pi_hash = "0.1"
+smallvec = "1.10"
+pi_null = "0.1"
