@@ -100,7 +100,7 @@ impl<T, const N: usize> SmallVecMap<T, N> {
     }
     /// 取到某个偏移位置的只读值
     pub fn get(&self, index: u32) -> Option<&T> {
-        if index as usize >= self.entries.len() {
+        if index as usize >= self.indexs.len() {
             return None;
         }
         let i = self.indexs[index as usize];
@@ -112,7 +112,7 @@ impl<T, const N: usize> SmallVecMap<T, N> {
 
     /// 取到某个偏移位置的可变值
     pub fn get_mut(&mut self, index: u32) -> Option<&mut T> {
-        if index as usize >= self.entries.len(){
+        if index as usize >= self.indexs.len(){
             return None;
         }
         let i = self.indexs[index as usize];
@@ -155,7 +155,7 @@ impl<T, const N: usize> SmallVecMap<T, N> {
         } else {
             let i = unsafe {self.indexs.get_unchecked_mut(index as usize)};
             if (*i).is_null() {
-                *i = index;
+                *i = self.entries.len() as u32;
                 self.entries.push((val, index));
                 return None;
             }
@@ -281,13 +281,13 @@ impl<T, const N: usize> Index<usize> for SmallVecMap<T, N> {
     type Output = T;
 
     fn index(&self, index: usize) -> &T {
-        self.get(index as u32).unwrap()
+        unsafe { self.get_unchecked(index as u32) }
     }
 }
 
 impl<T, const N: usize> IndexMut<usize> for SmallVecMap<T, N> {
     fn index_mut(&mut self, index: usize) -> &mut T {
-        self.get_mut(index as u32).unwrap()
+        unsafe { self.get_unchecked_mut(index as u32) }
     }
 }
 
