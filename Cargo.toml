@@ -1,6 +1,6 @@
 [package]
 name = "pi_map"
-version = "0.2.0"
+version = "0.1.5"
 authors = ["suncy <530739162@qq.com>"]
 edition = "2021"
 description = "Define a Triat: map for the mapped schema, and provide two built-in implementations of HashMap and vecmap"
@@ -11,4 +11,4 @@ keywords = ["pi", "pi_map", "map"]
 [dependencies]
 pi_hash = "0.1"
 smallvec = "1.10"
-pi_null = "0.2"
+pi_null = "0.1"
