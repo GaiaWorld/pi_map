@@ -44,8 +44,20 @@ impl<T, const N: usize> Default for SmallVecMap<T, N> {
 //         }
 //     }
 // }
+impl<T, const N: usize> From<Vec<(T, u32)>> for SmallVecMap<T, N> {
+    fn from(value: Vec<(T, u32)>) -> Self {
+        let len = value.len();
+        let mut indexs = Vec::with_capacity(len);
+        for idx in 0..len {
+            indexs.push(idx as u32);
+        }
+        Self {
+            indexs,
+            entries: SmallVec::from_vec(value),
+        }
+    }
+}
 impl<T, const N: usize> SmallVecMap<T, N> {
-
     /// 创建一个SmallVecMap实例
     pub fn new() -> Self {
         SmallVecMap::with_capacity(0)
