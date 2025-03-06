@@ -10,6 +10,7 @@
 // #![feature(generators, generator_trait)]
 #![feature(associated_type_defaults)]
 #![feature(exclusive_range_pattern)]
+#![feature(ub_checks)]
 #![feature(trait_alias)]
 #[warn(unreachable_patterns)]
 

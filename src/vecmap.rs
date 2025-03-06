@@ -18,7 +18,7 @@
 use std::mem::{replace};
 use std::fmt::Debug;
 use std::ops::{Index, IndexMut};
-use std::slice::Iter;
+use std::slice::{Iter, IterMut};
 // use std::ops::Drop;
 // use std::ptr::write;
 
@@ -104,15 +104,9 @@ impl<T> VecMap<T> {
         self.entries.iter()
     }
 
-    // pub fn iter_mut(&mut self) -> SlabIterMut<T> {
-    //     SlabIterMut {
-    //         entries: &mut self.entries as *mut Vec<T>,
-    //         signs: &mut self.vacancy_sign,
-    //         curr_index: 0,
-    //         len: self.len,
-    //         curr_len: 0,
-    //     }
-    // }
+    pub fn iter_mut(&mut self) -> IterMut<Option<T>> {
+        self.entries.iter_mut()
+    }
     
     /// 替换指定位置的值, 并返回旧值
     /// 你应该确认，旧值一定存在，否则将会panic

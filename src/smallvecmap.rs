@@ -4,14 +4,19 @@
 //! SmallVecMap通常用于存放的少量数据，数据的key可以跨度比较大。
 //! 再决定使用SmallVecMap前，你应该综合考虑这几个问题：访问性能、数据连续性、内存的浪费情况。
 //!
+//! 
+//! rust 1.87 下 wasm debug 版本运行smallvec会出现内存不对齐问题
+//! 暂时改成debug下使用vecmap
 use std::mem::replace;
 use std::fmt::{Debug};
 use std::ops::{Index, IndexMut};
 use std::slice::{Iter, IterMut};
+use std::sync::atomic::AtomicU64;
 use smallvec::{SmallVec, Array};
 use pi_null::Null;
 
 
+use crate::vecmap::VecMap;
 use crate::Map;
 
 pub struct Arr<T, const N: usize>([(T, u32); N]);
@@ -23,12 +28,21 @@ unsafe impl<T, const N: usize> Array for Arr<T, N> {
         N
     }
 }
+pub struct VecMapIter<'a, T>(Iter<'a, Option<(T, u32)>>);
+pub struct VecMapIterMut<'a, T>(IterMut<'a, Option<(T, u32)>>);
+
+static ID: AtomicU64= AtomicU64::new(0);
 
 /// 数据结构SmallVecMap
 #[derive(Debug, Hash, Clone)]
 pub struct SmallVecMap<T, const N: usize> {
+    #[cfg(debug_assertions)]
+    entries: VecMap<(T, u32)>,// Chunk of memory
+    #[cfg(not(debug_assertions))]
     indexs: Vec<u32>,// Chunk of memory
+    #[cfg(not(debug_assertions))]
     entries: SmallVec<Arr<T, N>>,// Chunk of memory
+    id: u64
 }
 
 impl<T, const N: usize> Default for SmallVecMap<T, N> {
@@ -46,6 +60,8 @@ impl<T, const N: usize> Default for SmallVecMap<T, N> {
 // }
 impl<T, const N: usize> From<Vec<(T, u32)>> for SmallVecMap<T, N> {
     fn from(value: Vec<(T, u32)>) -> Self {
+        #[cfg(not(debug_assertions))]
+        {
         let len = value.len();
         let mut indexs = Vec::with_capacity(len);
         for idx in 0..len {
@@ -54,6 +70,19 @@ impl<T, const N: usize> From<Vec<(T, u32)>> for SmallVecMap<T, N> {
         Self {
             indexs,
             entries: SmallVec::from_vec(value),
+            id: ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        }
+        }
+        #[cfg(debug_assertions)]
+        {
+            let mut map = VecMap::new();
+            for (val , idx) in value {
+                map.insert(idx as usize, (val, idx));
+            }
+            Self {
+                entries: map,
+                id: ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            }
         }
     }
 }
@@ -66,28 +95,43 @@ impl<T, const N: usize> SmallVecMap<T, N> {
     /// 创建一个SmallVecMap实例, 并指定初始化容量
     pub fn with_capacity(capacity: usize) -> SmallVecMap<T, N> {
         SmallVecMap {
+            #[cfg(debug_assertions)]
+            entries: VecMap::new(),// Chunk of memory
+            #[cfg(not(debug_assertions))]
             indexs: Vec::with_capacity(capacity),
+            #[cfg(not(debug_assertions))]
             entries: SmallVec::new(),
+            id: ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         }
     }
 
     /// 获取SmallVecMap当前的容量
     pub fn capacity(&self) -> usize {
+        #[cfg(debug_assertions)]
+        return self.entries.capacity();
+        #[cfg(not(debug_assertions))]
         self.indexs.capacity()
     }
 
     /// 扩充容量
     pub fn reserve(&mut self, additional: usize) {
+        #[cfg(debug_assertions)]
+        self.entries.reserve(additional);
+        #[cfg(not(debug_assertions))]
         self.indexs.reserve(additional);
     }
 
     /// 扩充容量
     pub fn reserve_exact(&mut self, additional: usize) {
+        #[cfg(debug_assertions)]
+        self.entries.reserve_exact(additional);
+        #[cfg(not(debug_assertions))]
         self.indexs.reserve_exact(additional);
     }
     
     /// 清空数据
     pub fn clear(&mut self) {
+        #[cfg(not(debug_assertions))]
         self.indexs.clear();
         self.entries.clear();
     }
@@ -98,20 +142,36 @@ impl<T, const N: usize> SmallVecMap<T, N> {
         self.entries.is_empty()
     }
     /// 获取一个只读迭代器，可以获取值所对应的index
+    #[cfg(not(debug_assertions))]
     pub fn iter(&self) -> Iter<'_, (T, u32)> {
         self.entries.iter()
     }
+    /// 获取一个只读迭代器，可以获取值所对应的index
+    #[cfg(debug_assertions)]
+    pub fn iter(&self) -> VecMapIter<T> {
+        VecMapIter(self.entries.iter())
+    }
     /// 获取一个可写迭代器，可以获取值所对应的index
+    #[cfg(not(debug_assertions))]
     pub fn iter_mut(&mut self) -> IterMut<'_, (T, u32)> {
         self.entries.iter_mut()
     }
     
+    /// 获取一个只读迭代器，可以获取值所对应的index
+    #[cfg(debug_assertions)]
+    pub fn iter_mut(&mut self) -> VecMapIterMut<T> {
+        VecMapIterMut(self.entries.iter_mut())
+    }
     /// 替换指定位置的值, 并返回旧值。你应该确认，旧值一定存在，否则将会panic
     pub unsafe fn replace(&mut self, index: u32, val: T) -> T {
         replace(self.get_unchecked_mut(index), val)
     }
     /// 取到某个偏移位置的只读值
     pub fn get(&self, index: u32) -> Option<&T> {
+        #[cfg(debug_assertions)]
+        return self.entries.get(index as usize).map(|v| &v.0);
+        #[cfg(not(debug_assertions))]
+        {
         if index as usize >= self.indexs.len() {
             return None;
         }
@@ -121,9 +181,14 @@ impl<T, const N: usize> SmallVecMap<T, N> {
         }
         Some(&self.entries[i as usize].0)
     }
+    }
 
     /// 取到某个偏移位置的可变值
     pub fn get_mut(&mut self, index: u32) -> Option<&mut T> {
+        #[cfg(debug_assertions)]
+        return self.entries.get_mut(index as usize).map(|v| &mut v.0);
+        #[cfg(not(debug_assertions))]
+        {
         if index as usize >= self.indexs.len(){
             return None;
         }
@@ -133,21 +198,32 @@ impl<T, const N: usize> SmallVecMap<T, N> {
         }
         Some(&mut self.entries[i as usize].0)
     }
+    }
 
     /// 取到某个偏移位置的只读值
     /// 如果该位置不存在值，将panic
     pub unsafe fn get_unchecked(&self, index: u32) -> &T {
+        #[cfg(debug_assertions)]
+        return &self.entries.get_unchecked(index as usize).0;
+        #[cfg(not(debug_assertions))]
         &self.entries[self.indexs[index as usize] as usize].0
     }
 
     /// 取到某个偏移位置的可变值
     /// 如果该位置不存在值，将panic
     pub unsafe fn get_unchecked_mut(&mut self, index: u32) -> &mut T {
+        #[cfg(debug_assertions)]
+        return &mut self.entries.get_unchecked_mut(index as usize).0;
+        #[cfg(not(debug_assertions))]
         &mut self.entries[self.indexs[index as usize] as usize].0
     }
 
     /// 在指定位置插入一个值，并返回旧值，如果不存在旧值，返回None
     pub fn insert(&mut self, index:u32, val: T) -> Option<T>{
+        #[cfg(debug_assertions)]
+        return self.entries.insert(index as usize, (val, index)).map(|(v, _)| v);
+        #[cfg(not(debug_assertions))]
+		{
 		let len = self.indexs.len();
         if index as usize > self.indexs.capacity() {
             self.indexs.reserve(index as usize - self.indexs.capacity());
@@ -174,9 +250,14 @@ impl<T, const N: usize> SmallVecMap<T, N> {
             Some(replace(&mut self.entries[*i as usize].0, val))
         }
     }
+    }
 
     /// 移除指定位置的值，返回被移除的值，如果该位置不存在一个值，返回None
     pub fn remove(&mut self, index: u32) -> Option<T> {
+        #[cfg(debug_assertions)]
+        return self.entries.remove(index as usize).map(|(v, _)| v);
+        #[cfg(not(debug_assertions))]
+        {
         if index as usize >= self.indexs.len() {
             return None;
         }
@@ -195,9 +276,14 @@ impl<T, const N: usize> SmallVecMap<T, N> {
         self.indexs[self.entries[i].1 as usize] = i as u32;
         r
     }
+    }
 
     /// 移除指定位置的值，返回被移除的值，如果该位置不存在一个值将panic
     pub unsafe fn remove_unchecked(&mut self, index: u32) -> T {
+        #[cfg(debug_assertions)]
+        return self.entries.remove_unchecked(index as usize).0;
+        #[cfg(not(debug_assertions))]
+        {
         let i = &mut self.indexs[index as usize];
         if *i as usize + 1 == self.entries.len() {
             *i = u32::null();
@@ -210,13 +296,19 @@ impl<T, const N: usize> SmallVecMap<T, N> {
         self.indexs[self.entries[i].1 as usize] = i as u32;
         r
     }
+    }
 
     /// 判断指定位置是否存在一个值
     pub fn contains(&self, index: u32) -> bool {
+        #[cfg(debug_assertions)]
+        return self.entries.contains(index as usize);
+        #[cfg(not(debug_assertions))]
+        {
         if index as usize >= self.indexs.len(){
             return false;
         }
         return !self.indexs[index as usize].is_null()
+    }
     }
 
     /// 取到SmallVecMap的长度
@@ -277,7 +369,7 @@ impl<T, const N: usize> Map for SmallVecMap<T, N> {
     }
     #[inline]
     fn capacity(&self) -> usize {
-        self.indexs.capacity()
+        self.capacity()
     }
     #[inline]
     fn mem_size(&self) -> usize {
@@ -332,6 +424,23 @@ fn test_time(){
     }
     println!("insert SmallVecMap time: {:?}", Instant::now() - time);
 
+}
+
+impl <'a, T> Iterator for VecMapIter<'a, T> {
+    type Item = &'a(T, u32);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop{
+            if let Some(item) = self.0.next(){
+                if let Some(item ) = item{
+                    return Some(item);
+                }
+            } else {
+                break;
+            }
+        }
+        None  
+    }
 }
 #[test]
 fn test(){
